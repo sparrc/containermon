@@ -34,13 +34,14 @@ func main() {
 	}
 	cli.NegotiateAPIVersion(context.TODO())
 
-	start := time.Now()
 	stats := getStats(cli)
+	start := time.Now()
 	startUsage := stats.CPUStats.CPUUsage.TotalUsage
 	previousTotalUsage = stats.CPUStats.CPUUsage.TotalUsage
+	previousTime = start
 	ticker := time.NewTicker(time.Duration(*interval) * time.Second)
 	if *outputFormat == "csv" {
-		fmt.Println("timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval")
+		fmt.Println("ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval")
 	}
 	for {
 		select {
@@ -49,7 +50,7 @@ func main() {
 			now := time.Now()
 			elapsed := now.Sub(start)
 			intervalElapsed := now.Sub(previousTime)
-			printStats(stats, elapsed, intervalElapsed, startUsage)
+			printStats(stats, now, elapsed, intervalElapsed, startUsage)
 			previousTotalUsage = stats.CPUStats.CPUUsage.TotalUsage
 			previousTime = now
 		}
@@ -71,18 +72,20 @@ func getStats(cli *client.Client) *types.StatsJSON {
 	return data
 }
 
-func printStats(stats *types.StatsJSON, elapsed time.Duration, intervalElapsed time.Duration, startUsage uint64) {
+func printStats(stats *types.StatsJSON, now time.Time, elapsed time.Duration, intervalElapsed time.Duration, startUsage uint64) {
 	if *outputFormat == "csv" {
 		// csv
-		// timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval
-		fmt.Printf("%.2f,%.2f,%.2f,%.2f\n",
+		// ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval
+		fmt.Printf("%s,%.2f,%.2f,%.2f,%.2f\n",
+			now.Format(time.RFC3339),
 			elapsed.Seconds(),
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/1000000000,
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/float64(elapsed.Nanoseconds())*100,
 			float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage)/float64(intervalElapsed.Nanoseconds())*100)
 	} else {
 		// json
-		fmt.Printf(`{"timeElapsed":%.2f,"cpuTimeElapsed":%.2f,"percentCPUSinceStart":%.2f,"percentCPUThisInterval":%.2f}`,
+		fmt.Printf(`{"ts":"%s","timeElapsed":%.2f,"cpuTimeElapsed":%.2f,"percentCPUSinceStart":%.2f,"percentCPUThisInterval":%.2f}`,
+			now.Format(time.RFC3339),
 			elapsed.Seconds(),
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/1000000000,
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/float64(elapsed.Nanoseconds())*100,
