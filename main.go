@@ -17,6 +17,7 @@ var (
 	interval      = flag.Int("interval", 10, "collection interval (in seconds)")
 
 	previousTotalUsage uint64
+	previousTime       time.Time
 )
 
 func main() {
@@ -43,11 +44,14 @@ func main() {
 	}
 	for {
 		select {
-		case t := <-ticker.C:
+		case <-ticker.C:
 			stats = getStats(cli)
-			elapsed := t.Sub(start)
-			printStats(stats, elapsed, startUsage)
+			now := time.Now()
+			elapsed := now.Sub(start)
+			intervalElapsed := now.Sub(previousTime)
+			printStats(stats, elapsed, intervalElapsed, startUsage)
 			previousTotalUsage = stats.CPUStats.CPUUsage.TotalUsage
+			previousTime = now
 		}
 	}
 }
@@ -67,7 +71,7 @@ func getStats(cli *client.Client) *types.StatsJSON {
 	return data
 }
 
-func printStats(stats *types.StatsJSON, elapsed time.Duration, startUsage uint64) {
+func printStats(stats *types.StatsJSON, elapsed time.Duration, intervalElapsed time.Duration, startUsage uint64) {
 	if *outputFormat == "csv" {
 		// csv
 		// timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval
@@ -75,14 +79,14 @@ func printStats(stats *types.StatsJSON, elapsed time.Duration, startUsage uint64
 			elapsed.Seconds(),
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/1000000000,
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/float64(elapsed.Nanoseconds())*100,
-			float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage)/float64(*interval*1000000000)*100)
+			float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage)/float64(intervalElapsed.Nanoseconds())*100)
 	} else {
 		// json
 		fmt.Printf(`{"timeElapsed":%.2f,"cpuTimeElapsed":%.2f,"percentCPUSinceStart":%.2f,"percentCPUThisInterval":%.2f}`,
 			elapsed.Seconds(),
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/1000000000,
 			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/float64(elapsed.Nanoseconds())*100,
-			float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage)/float64(*interval*1000000000)*100)
+			float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage)/float64(intervalElapsed.Nanoseconds())*100)
 		fmt.Println()
 	}
 }
