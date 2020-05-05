@@ -73,23 +73,30 @@ func getStats(cli *client.Client) *types.StatsJSON {
 }
 
 func printStats(stats *types.StatsJSON, now time.Time, elapsed time.Duration, intervalElapsed time.Duration, startUsage uint64) {
+	ts := now.UTC().Format(time.RFC3339)
+	timeElapsed := elapsed.Seconds()
+	// cpu time in seconds
+	cpuTimeElapsed := float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage) / 1000000000
+	percentCPUSinceStart := float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage) / float64(elapsed.Nanoseconds()) * 100
+	percentCPUThisInterval := float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage) / float64(intervalElapsed.Nanoseconds()) * 100
+
 	if *outputFormat == "csv" {
 		// csv
 		// ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval
 		fmt.Printf("%s,%.2f,%.2f,%.2f,%.2f\n",
-			now.Format(time.RFC3339),
-			elapsed.Seconds(),
-			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/1000000000,
-			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/float64(elapsed.Nanoseconds())*100,
-			float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage)/float64(intervalElapsed.Nanoseconds())*100)
+			ts,
+			timeElapsed,
+			cpuTimeElapsed,
+			percentCPUSinceStart,
+			percentCPUThisInterval)
 	} else {
 		// json
 		fmt.Printf(`{"ts":"%s","timeElapsed":%.2f,"cpuTimeElapsed":%.2f,"percentCPUSinceStart":%.2f,"percentCPUThisInterval":%.2f}`,
-			now.Format(time.RFC3339),
-			elapsed.Seconds(),
-			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/1000000000,
-			float64(stats.CPUStats.CPUUsage.TotalUsage-startUsage)/float64(elapsed.Nanoseconds())*100,
-			float64(stats.CPUStats.CPUUsage.TotalUsage-previousTotalUsage)/float64(intervalElapsed.Nanoseconds())*100)
+			ts,
+			timeElapsed,
+			cpuTimeElapsed,
+			percentCPUSinceStart,
+			percentCPUThisInterval)
 		fmt.Println()
 	}
 }
