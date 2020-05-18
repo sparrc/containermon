@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -41,7 +42,7 @@ func main() {
 	previousTime = start
 	ticker := time.NewTicker(time.Duration(*interval) * time.Second)
 	if *outputFormat == "csv" {
-		fmt.Println("ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval")
+		fmt.Println("ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval,memoryUsageKiB")
 	}
 	for {
 		select {
@@ -63,13 +64,18 @@ func getStats(cli *client.Client) *types.StatsJSON {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	decoder := json.NewDecoder(resp.Body)
-	data := new(types.StatsJSON)
-	err = decoder.Decode(data)
+
+	stats := &types.StatsJSON{}
+	buf, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
-	return data
+	err = json.Unmarshal(buf, stats)
+	if err != nil {
+		panic(err)
+	}
+
+	return stats
 }
 
 func printStats(stats *types.StatsJSON, now time.Time, elapsed time.Duration, intervalElapsed time.Duration, startUsage uint64) {
@@ -82,21 +88,23 @@ func printStats(stats *types.StatsJSON, now time.Time, elapsed time.Duration, in
 
 	if *outputFormat == "csv" {
 		// csv
-		// ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval
-		fmt.Printf("%s,%.2f,%.2f,%.2f,%.2f\n",
+		// ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval,memoryUsageKiB
+		fmt.Printf("%s,%.2f,%.2f,%.2f,%.2f,%.1f\n",
 			ts,
 			timeElapsed,
 			cpuTimeElapsed,
 			percentCPUSinceStart,
-			percentCPUThisInterval)
+			percentCPUThisInterval,
+			float64(stats.MemoryStats.Usage)/1024)
 	} else {
 		// json
-		fmt.Printf(`{"ts":"%s","timeElapsed":%.2f,"cpuTimeElapsed":%.2f,"percentCPUSinceStart":%.2f,"percentCPUThisInterval":%.2f}`,
+		fmt.Printf(`{"ts":"%s","timeElapsed":%.2f,"cpuTimeElapsed":%.2f,"percentCPUSinceStart":%.2f,"percentCPUThisInterval":%.2f,"memoryUsageKiB":%.1f}`,
 			ts,
 			timeElapsed,
 			cpuTimeElapsed,
 			percentCPUSinceStart,
-			percentCPUThisInterval)
+			percentCPUThisInterval,
+			float64(stats.MemoryStats.Usage)/1024)
 		fmt.Println()
 	}
 }
