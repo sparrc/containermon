@@ -33,7 +33,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	cli.NegotiateAPIVersion(context.TODO())
 
 	stats := getStats(cli)
 	start := time.Now()
