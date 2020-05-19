@@ -43,17 +43,14 @@ func main() {
 	if *outputFormat == "csv" {
 		fmt.Println("ts,timeElapsed,cpuTimeElapsed,percentCPUSinceStart,percentCPUThisInterval,memoryUsageKiB")
 	}
-	for {
-		select {
-		case <-ticker.C:
-			stats = getStats(cli)
-			now := time.Now()
-			elapsed := now.Sub(start)
-			intervalElapsed := now.Sub(previousTime)
-			printStats(stats, now, elapsed, intervalElapsed, startUsage)
-			previousTotalUsage = stats.CPUStats.CPUUsage.TotalUsage
-			previousTime = now
-		}
+	for range ticker.C {
+		stats = getStats(cli)
+		now := time.Now()
+		elapsed := now.Sub(start)
+		intervalElapsed := now.Sub(previousTime)
+		printStats(stats, now, elapsed, intervalElapsed, startUsage)
+		previousTotalUsage = stats.CPUStats.CPUUsage.TotalUsage
+		previousTime = now
 	}
 }
 
